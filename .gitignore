@@ -14,3 +14,5 @@ __pycache__/
 # 에디터
 .vscode/
 .idea/
+
+firebase-key.json

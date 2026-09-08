@@ -1,39 +1,283 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>공부 시간 그래프</title>
-    <!-- Chart.js 그래프 도구 불러오기 (인터넷 필요) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <title>공부 시간 기록</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f7fa;
+    }
+    h1 { text-align: center; color: #333; }
+    h2 { color: #333; margin-top: 0; }
+    .form-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+    label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      background: #4a90d9;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover { background: #357abd; }
+    .chart-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .conv-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .conv-title {
+      cursor: pointer;
+      flex: 1;
+      color: #4a90d9;
+    }
+    .conv-title:hover { text-decoration: underline; }
+    .btn-delete {
+      width: auto;
+      padding: 6px 14px;
+      margin: 0;
+      background: #e74c3c;
+      font-size: 13px;
+    }
+    .btn-delete:hover { background: #c0392b; }
+  </style>
 </head>
 <body>
-    <h1>📊 내 공부 시간</h1>
+  <h1>📚 공부 시간 기록</h1>
 
-    <!-- 그래프가 그려질 자리 -->
-    <canvas id="myChart" width="600" height="400"></canvas>
+  <!-- 입력 폼 -->
+  <div class="form-box">
+    <label>날짜</label>
+    <input type="date" id="date">
 
-    <script>
-        // 1) 서버에서 데이터 가져오기
-        fetch("http://127.0.0.1:8000/records")
-            .then(response => response.json())  // JSON으로 변환
-            .then(data => {
-                // 2) 날짜와 값 분리
-                const dates = data.records.map(item => item.date);   // x축: 날짜들
-                const values = data.records.map(item => item.value); // y축: 시간들
+    <label>공부 시간 (분)</label>
+    <input type="number" id="value" placeholder="예: 120">
 
-                // 3) 그래프 그리기
-                new Chart(document.getElementById("myChart"), {
-                    type: "bar",  // 막대그래프
-                    data: {
-                        labels: dates,
-                        datasets: [{
-                            label: "공부 시간(분)",
-                            data: values,
-                            backgroundColor: "skyblue"
-                        }]
-                    }
-                });
-            });
-    </script>
+    <label>메모</label>
+    <input type="text" id="memo" placeholder="예: 파이썬 공부">
+
+    <button onclick="saveRecord()">저장하기</button>
+  </div>
+
+  <!-- 그래프 -->
+  <div class="chart-box">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <!-- 💬 AI 채팅 영역 -->
+  <div class="chart-box" style="margin-top: 30px;">
+    <h2>🤖 AI 학습 비서</h2>
+    <div id="chatAnswer"
+         style="min-height: 80px; padding: 15px; background: #f5f7fa;
+                border-radius: 8px; margin-bottom: 15px; white-space: pre-wrap;
+                line-height: 1.6;">
+      안녕하세요! 공부에 대해 무엇이든 물어보세요 😊
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <input type="text" id="chatInput"
+             placeholder="예: 나 공부 잘하고 있어?"
+             onkeydown="if(event.key==='Enter') sendChat()"
+             style="flex: 1; margin: 0;">
+      <button onclick="sendChat()"
+              style="width: auto; padding: 0 25px; margin: 0;">
+        전송
+      </button>
+    </div>
+  </div>
+
+  <!-- 📋 대화 기록 목록 -->
+  <div class="chart-box" style="margin-top: 30px;">
+    <h2>📋 이전 대화 기록</h2>
+    <div id="convList" style="line-height: 1.8;">
+      불러오는 중...
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8000/records';
+    const CONV_API = 'http://localhost:8000/api/conversations';
+    let chart;
+
+    // 1️⃣ 데이터 저장 (POST)
+    async function saveRecord() {
+      const date = document.getElementById('date').value;
+      const value = Number(document.getElementById('value').value);
+      const memo = document.getElementById('memo').value;
+
+      if (!date || !value) {
+        alert('날짜와 공부 시간을 입력하세요!');
+        return;
+      }
+
+      await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, value, memo })
+      });
+
+      document.getElementById('value').value = '';
+      document.getElementById('memo').value = '';
+
+      loadRecords();
+    }
+
+    // 2️⃣ 데이터 불러오기 (GET) + 그래프
+    async function loadRecords() {
+      const res = await fetch(API);
+      const data = await res.json();
+      const records = data.records;
+
+      records.sort((a, b) => a.date.localeCompare(b.date));
+
+      const labels = records.map(r => r.date);
+      const values = records.map(r => r.value);
+
+      if (chart) chart.destroy();
+
+      const ctx = document.getElementById('myChart');
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '공부 시간 (분)',
+            data: values,
+            backgroundColor: '#4a90d9'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // 💬 AI에게 질문 보내기
+    async function sendChat() {
+      const input = document.getElementById('chatInput');
+      const answerBox = document.getElementById('chatAnswer');
+      const message = input.value;
+
+      if (!message) {
+        alert('질문을 입력해주세요!');
+        return;
+      }
+
+      answerBox.textContent = '🤔 생각 중...';
+
+      try {
+        const res = await fetch('http://localhost:8000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: message })
+        });
+
+        const data = await res.json();
+        answerBox.textContent = data.reply;
+        input.value = '';
+        loadConversations();  // ← 새 대화 목록에 반영!
+      } catch (error) {
+        answerBox.textContent = '❌ 오류가 발생했어요: ' + error;
+      }
+    }
+
+    // 📋 대화 목록 불러오기
+    async function loadConversations() {
+      const listBox = document.getElementById('convList');
+      try {
+        const res = await fetch(CONV_API);
+        const data = await res.json();
+
+        // 응답 구조 자동 대응 (배열이든 객체든 OK)
+        const convs = Array.isArray(data)
+          ? data
+          : (data.conversations || []);
+
+        if (convs.length === 0) {
+          listBox.textContent = '아직 대화 기록이 없어요 😊';
+          return;
+        }
+
+        listBox.innerHTML = convs.map(c => {
+          // id 필드명 자동 대응
+          const id = c.id || c.conv_id || c.doc_id;
+          const title = c.title || '(제목 없음)';
+          return `
+            <div class="conv-item">
+              <span class="conv-title" onclick="loadOneConv('${id}')">
+                💬 ${title}
+              </span>
+              <button class="btn-delete" onclick="deleteConv('${id}')">
+                삭제
+              </button>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        listBox.textContent = '❌ 목록 불러오기 실패: ' + error;
+      }
+    }
+
+    // 🔄 특정 대화 불러오기 (클릭 시)
+    async function loadOneConv(convId) {
+      const answerBox = document.getElementById('chatAnswer');
+      answerBox.textContent = '📂 불러오는 중...';
+      try {
+        const res = await fetch(`${CONV_API}/${convId}`);
+        const data = await res.json();
+
+        const text = data.messages.map(m =>
+          (m.role === 'user' ? '🙋 나: ' : '🤖 AI: ') + m.content
+        ).join('\n\n──────────\n\n');
+
+        answerBox.textContent = text;
+      } catch (error) {
+        answerBox.textContent = '❌ 불러오기 실패: ' + error;
+      }
+    }
+
+    // 🗑️ 대화 삭제
+    async function deleteConv(convId) {
+      if (!confirm('이 대화를 삭제할까요?')) return;
+      try {
+        await fetch(`${CONV_API}/${convId}`, { method: 'DELETE' });
+        loadConversations();
+      } catch (error) {
+        alert('❌ 삭제 실패: ' + error);
+      }
+    }
+
+    // 3️⃣ 페이지 열리면 자동 실행
+    loadRecords();
+    loadConversations();
+  </script>
 </body>
 </html>
