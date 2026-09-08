@@ -122,8 +122,8 @@
   </div>
 
   <script>
-    const API = 'http://localhost:8000/records';
-    const CONV_API = 'http://localhost:8000/api/conversations';
+    const API = 'https://aisup-auxx.onrender.com/records';
+    const CONV_API = 'https://aisup-auxx.onrender.com/api/conversations';
     let chart;
 
     // 1️⃣ 데이터 저장 (POST)
@@ -194,7 +194,7 @@
       answerBox.textContent = '🤔 생각 중...';
 
       try {
-        const res = await fetch('http://localhost:8000/chat', {
+        const res = await fetch('https://aisup-auxx.onrender.com/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: message })
