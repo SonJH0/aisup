@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>공부 시간 그래프</title>
+    <!-- Chart.js 그래프 도구 불러오기 (인터넷 필요) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>📊 내 공부 시간</h1>
+
+    <!-- 그래프가 그려질 자리 -->
+    <canvas id="myChart" width="600" height="400"></canvas>
+
+    <script>
+        // 1) 서버에서 데이터 가져오기
+        fetch("http://127.0.0.1:8000/records")
+            .then(response => response.json())  // JSON으로 변환
+            .then(data => {
+                // 2) 날짜와 값 분리
+                const dates = data.records.map(item => item.date);   // x축: 날짜들
+                const values = data.records.map(item => item.value); // y축: 시간들
+
+                // 3) 그래프 그리기
+                new Chart(document.getElementById("myChart"), {
+                    type: "bar",  // 막대그래프
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: "공부 시간(분)",
+                            data: values,
+                            backgroundColor: "skyblue"
+                        }]
+                    }
+                });
+            });
+    </script>
+</body>
+</html>

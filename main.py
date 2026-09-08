@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import json
 import os
+from fastapi.middleware.cors import CORSMiddleware
 
 DATA_FILE = "data.json"  # 데이터를 저장할 파일 이름
 
@@ -22,6 +23,15 @@ def save_data(data):
 
 # FastAPI 앱(서버) 생성
 app = FastAPI()
+
+
+# 👇 이 부분 추가! (CORS 허용)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],      # 모든 주소에서 접근 허용
+    allow_methods=["*"],      # 모든 요청 방식 허용 (GET, POST 등)
+    allow_headers=["*"],      # 모든 헤더 허용
+)
 
 
 # 📋 공부 기록 데이터 설계도
