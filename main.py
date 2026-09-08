@@ -25,9 +25,20 @@ def save_data(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
         # 🔥 Firebase 연결하기
-cred = credentials.Certificate("firebase-key.json")  # 열쇠 파일 불러오기
-firebase_admin.initialize_app(cred)                  # Firebase 앱 시작
-db = firestore.client()                              # db로 Firestore 사용!
+
+# 환경변수에서 Firebase 키 읽기
+firebase_json = os.environ.get("FIREBASE_KEY")
+
+if firebase_json:
+    # 배포 환경: 환경변수에서 읽기
+    cred_dict = json.loads(firebase_json)
+    cred = credentials.Certificate(cred_dict)
+else:
+    # 로컬 환경: 파일에서 읽기
+    cred = credentials.Certificate("firebase-key.json")
+
+firebase_admin.initialize_app(cred)  # Firebase 앱 시작
+db = firestore.client()               # db로 Firestore 사용!
 
 # 🤖 OpenAI 연결하기
 load_dotenv()                    # .env 파일 불러오기
